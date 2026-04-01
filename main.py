@@ -33,6 +33,10 @@ SYSTEM_PROMPT = f"""
 
 model = genai.GenerativeModel("gemini-2.5-flash-lite-preview-06-17" )
 
+@app.route("/")
+def home():
+    return "RUNNING OK"
+
 @app.route("/callback", methods=["POST"])
 def callback():
     signature = request.headers["X-Line-Signature"]
