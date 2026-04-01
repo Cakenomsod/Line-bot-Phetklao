@@ -64,7 +64,7 @@ SYSTEM_PROMPT = f"""
 {my_info}
 """
 
-model = genai.GenerativeModel("gemini-2.5-flash-lite-preview-06-17")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 # =========================
 # ROUTE TEST
@@ -92,22 +92,7 @@ def callback():
 
     return "OK"
 
-# =========================
-# Quick Reply (ประหยัด API)
-# =========================
-def quick_reply(msg):
-    msg = msg.lower()
 
-    if "ราคา" in msg:
-        return "💰 เว็บเริ่ม 1,500 บาท\n🎬 วิดีโอเริ่ม 500 บาท/คลิป\n🤖 Chatbot เริ่ม 2,000 บาท\nสนใจให้ประเมินเพิ่มไหมครับ"
-
-    if "ผลงาน" in msg or "portfolio" in msg:
-        return "📂 ดูผลงานได้จาก Portfolio ที่ให้ไว้ครับ สนใจแนวไหนบอกได้เลยนะครับ"
-
-    if "ติดต่อ" in msg or "line" in msg:
-        return "📞 ติดต่อได้ตามข้อมูลที่ให้ไว้ หรือส่งรายละเอียดงานมาได้เลยครับ เดี๋ยวผมประเมินให้"
-
-    return None
 
 # =========================
 # Gemini Call (กันพัง)
