@@ -18,7 +18,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # =========================
-# โหลด Keys (กัน None)
+# โหลด Keys
 # =========================
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
@@ -26,9 +26,6 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not LINE_CHANNEL_SECRET or not LINE_CHANNEL_ACCESS_TOKEN:
     raise ValueError("LINE ENV ไม่ครบ")
-
-if not GEMINI_API_KEY:
-    print("⚠️ ไม่มี GEMINI_API_KEY (จะใช้ fallback)")
 
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 configuration = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
@@ -92,10 +89,8 @@ def callback():
 
     return "OK"
 
-
-
 # =========================
-# Gemini Call (กันพัง)
+# Gemini Call
 # =========================
 def ask_gemini(user_message):
     if not GEMINI_API_KEY:
@@ -121,24 +116,17 @@ def ask_gemini(user_message):
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     user_message = event.message.text.strip()
-
     print("👤 USER:", user_message)
 
-    # 1. ตอบแบบเร็ว
-    reply_text = quick_reply(user_message)
+    # ✅ เรียก AI ตรง ๆ (ไม่มี quick reply)
+    reply_text = ask_gemini(user_message)
 
-    # 2. ถ้าไม่มี → ใช้ AI
-    if not reply_text:
-        reply_text = ask_gemini(user_message)
-
-    # 3. กันข้อความยาวเกิน
+    # กันข้อความยาวเกิน
     reply_text = reply_text[:4900]
 
     print("🤖 BOT:", reply_text)
 
-    # =========================
     # ส่งกลับ LINE
-    # =========================
     try:
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
@@ -150,7 +138,6 @@ def handle_message(event):
             )
     except Exception as e:
         print("❌ LINE ERROR:", e)
-
 
 # =========================
 # RUN
