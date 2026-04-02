@@ -37,21 +37,40 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 # --- ฟังก์ชันจัดการ AI และส่งข้อความแบบ Push ---
 def process_and_send(user_id, user_message):
     try:
-        # เรียก Gemini (จุดที่ใช้เวลานาน)
-        response = model.generate_content(f"{SYSTEM_PROMPT}\n\nลูกค้าถามว่า: {user_message}")
-        reply_text = response.text if response and response.text else "ติดต่อโดยตรงได้เลยนะครับ"
+        # 1. คุมที่ Prompt ให้ตอบสั้น (เพิ่มคำสั่งเข้าไป)
+        refined_prompt = f"{SYSTEM_PROMPT}\n**คำสั่งเพิ่มเติม: ตอบให้กระชับที่สุด ห้ามเกิน 500 ตัวอักษร**\n\nลูกค้าถามว่า: {user_message}"
         
-        # ส่งกลับด้วย Push Message (ไม่ต้องใช้ Reply Token)
+        response = model.generate_content(refined_prompt)
+        
+        if response and hasattr(response, "text") and response.text:
+            # 2. ตัดข้อความให้ชัวร์ก่อนส่ง (LINE รับได้ไม่เกิน 5,000)
+            final_text = response.text.strip()[:4500] 
+        else:
+            final_text = "ขออภัยครับ ติดต่อโดยตรงได้เลยนะครับ"
+
+        # 3. ส่งกลับด้วย Push Message
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
             line_bot_api.push_message(
                 PushMessageRequest(
                     to=user_id,
-                    messages=[TextMessage(text=reply_text)]
+                    messages=[TextMessage(text=final_text)]
                 )
             )
+            
     except Exception as e:
-        print("❌ BACKGROUND ERROR:", e)
+        # พิมพ์ Error ออกมาดูถ้ายังมีปัญหา
+        print(f"❌ BACKGROUND ERROR: {e}")
+        # ถ้า Error เพราะข้อความยาวเกินอีก ให้ส่งข้อความสั้นๆ ไปแทน
+        if "400" in str(e):
+             with ApiClient(configuration) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                line_bot_api.push_message(
+                    PushMessageRequest(
+                        to=user_id,
+                        messages=[TextMessage(text="ขออภัยครับ คำตอบยาวเกินไป รบกวนสอบถามให้แคบลงนิดนึงนะครับ")]
+                    )
+                )
 
 @app.route("/callback", methods=["POST"])
 def callback():
