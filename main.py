@@ -31,20 +31,20 @@ try:
 except:
     my_info = "ไม่มีข้อมูล"
 
-SYSTEM_PROMPT = f"คุณคือผู้ช่วยส่วนตัว... {my_info}" # ใส่ Prompt เดิมของคุณ
+SYSTEM_PROMPT = f"{my_info}"
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 # --- ฟังก์ชันจัดการ AI และส่งข้อความแบบ Push ---
 def process_and_send(user_id, user_message):
     try:
         # 1. คุมที่ Prompt ให้ตอบสั้น (เพิ่มคำสั่งเข้าไป)
-        refined_prompt = f"{SYSTEM_PROMPT}\n**คำสั่งเพิ่มเติม: ตอบให้กระชับที่สุด ห้ามเกิน 500 ตัวอักษร**\n\nลูกค้าถามว่า: {user_message}"
+        refined_prompt = f"{SYSTEM_PROMPT}\n**คำสั่งเพิ่มเติม: ตอบให้กระชับที่สุด **\n\nลูกค้าถามว่า: {user_message}"
         
         response = model.generate_content(refined_prompt)
         
         if response and hasattr(response, "text") and response.text:
             # 2. ตัดข้อความให้ชัวร์ก่อนส่ง (LINE รับได้ไม่เกิน 5,000)
-            final_text = response.text.strip()[:4500] 
+            final_text = response.text.strip()[:5000] 
         else:
             final_text = "ขออภัยครับ ติดต่อโดยตรงได้เลยนะครับ"
 
