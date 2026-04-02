@@ -34,59 +34,43 @@ except:
 SYSTEM_PROMPT = f"{my_info}"
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-# เก็บประวัติแยกตาม user_id
-conversation_history = {}
-MAX_HISTORY = 10  # เก็บแค่ 10 รอบล่าสุด ประหยัด Token
-
-
 # --- ฟังก์ชันจัดการ AI และส่งข้อความแบบ Push ---
 def process_and_send(user_id, user_message):
     try:
-        # ดึงประวัติของ user คนนี้ ถ้าไม่มีสร้างใหม่
-        if user_id not in conversation_history:
-            conversation_history[user_id] = []
+        # 1. คุมที่ Prompt ให้ตอบสั้น (เพิ่มคำสั่งเข้าไป)
+        refined_prompt = f"{SYSTEM_PROMPT} \n\nลูกค้าถามว่า: {user_message}"
+        
+        response = model.generate_content(refined_prompt)
+        
+        if response and hasattr(response, "text") and response.text:
+            # 2. ตัดข้อความให้ชัวร์ก่อนส่ง (LINE รับได้ไม่เกิน 5,000)
+            final_text = response.text.strip()[:5000] 
+        else:
+            final_text = "ขออภัยครับ ติดต่อโดยตรงได้เลยนะครับ"
 
-        history = conversation_history[user_id]
-
-        # เพิ่มข้อความใหม่เข้าไป
-        history.append({
-            "role": "user",
-            "parts": [user_message]
-        })
-
-        # ส่งพร้อม History ทั้งหมด
-        chat = model.start_chat(history=history[:-1])
-        response = chat.send_message(
-            f"{SYSTEM_PROMPT}\n\nลูกค้าถามว่า: {user_message}"
-            if len(history) == 1
-            else user_message
-        )
-
-        reply = response.text.strip()[:4500] if response.text else "ติดต่อโดยตรงได้เลยครับ 😊"
-
-        # เพิ่ม Reply ของ AI เข้า History
-        history.append({
-            "role": "model",
-            "parts": [reply]
-        })
-
-        # ตัดให้เหลือแค่ MAX_HISTORY รอบ
-        if len(history) > MAX_HISTORY * 2:
-            conversation_history[user_id] = history[-(MAX_HISTORY * 2):]
-
-        # ส่งกลับ Line
+        # 3. ส่งกลับด้วย Push Message
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
             line_bot_api.push_message(
                 PushMessageRequest(
                     to=user_id,
-                    messages=[TextMessage(text=reply)]
+                    messages=[TextMessage(text=final_text)]
                 )
             )
-
+            
     except Exception as e:
-        print(f"❌ ERROR: {e}")
-
+        # พิมพ์ Error ออกมาดูถ้ายังมีปัญหา
+        print(f"❌ BACKGROUND ERROR: {e}")
+        # ถ้า Error เพราะข้อความยาวเกินอีก ให้ส่งข้อความสั้นๆ ไปแทน
+        if "400" in str(e):
+             with ApiClient(configuration) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                line_bot_api.push_message(
+                    PushMessageRequest(
+                        to=user_id,
+                        messages=[TextMessage(text="ขออภัยครับ คำตอบยาวเกินไป รบกวนสอบถามให้แคบลงนิดนึงนะครับ")]
+                    )
+                )
 
 @app.route("/callback", methods=["POST"])
 def callback():
@@ -111,8 +95,3 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 
-@app.route("/reset/<user_id>", methods=["GET"])
-def reset_history(user_id):
-    if user_id in conversation_history:
-        del conversation_history[user_id]
-    return f"Reset history for {user_id}"
