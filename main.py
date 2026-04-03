@@ -131,6 +131,23 @@ def handle_message(event):
     thread = threading.Thread(target=process_and_send, args=(user_id, user_message))
     thread.start()
 
+    if user_message == "/reset":
+        if user_id in conversation_history:
+            del conversation_history[user_id]
+            reply_text = "ล้างประวัติการคุยของเราเรียบร้อยแล้วครับ!"
+        else:
+            reply_text = "ยังไม่มีประวัติให้ล้างครับ"
+            
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.push_message(
+                PushMessageRequest(
+                    to=user_id,
+                    messages=[TextMessage(text=reply_text)]
+                )
+            )
+        return
+
 
 # Route สำหรับล้างประวัติ (ใช้ทดสอบ หรือถ้า user อยาก reset)
 @app.route("/reset/<user_id>", methods=["GET"])
