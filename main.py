@@ -1,6 +1,7 @@
 import os
 import threading
 from flask import Flask, request, abort
+from flask_cors import CORS
 from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import (
     Configuration, ApiClient, MessagingApi,
@@ -13,6 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 app = Flask(__name__)
+CORS(app)
 
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
@@ -112,6 +114,35 @@ def process_and_send(user_id, user_message):
             pass
 
 
+@app.route("/webchat", methods=["POST"])
+def web_chat():
+    data = request.json
+    user_message = data.get("message", "")
+    # ใช้ session_id แทน user_id ของ Line (เพื่อเก็บประวัติแยกคนบนเว็บ)
+    session_id = data.get("session_id", "web-user-default") 
+
+    if not user_message:
+        return {"reply": "กรุณาพิมพ์ข้อความครับ"}, 400
+
+    try:
+        # ใช้ Logic เดียวกันกับ Line เลย (Shared Brain)
+        if session_id not in conversation_history:
+            conversation_history[session_id] = []
+
+        chat = model.start_chat(history=conversation_history[session_id])
+        response = chat.send_message(user_message)
+        reply = response.text.strip() if response.text else "ขออภัยครับ มีปัญหาในการประมวลผล"
+
+        # อัปเดตประวัติ
+        conversation_history[session_id] = list(chat.history)
+        
+        return {"reply": reply}
+
+    except Exception as e:
+        print(f"WEB ERROR: {e}")
+        return {"reply": "ขออภัยครับ ระบบขัดข้องชั่วคราว"}, 500
+    
+    
 @app.route("/callback", methods=["POST"])
 def callback():
     signature = request.headers.get("X-Line-Signature", "")
